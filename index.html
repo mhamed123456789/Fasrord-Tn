@@ -60,6 +60,18 @@
                 <button onclick="goHome()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
             </div>
 
+            <!-- Paramètres WhatsApp (Numéro de réception) -->
+            <div class="bg-gray-900 p-6 rounded-lg mb-10 border border-gray-800">
+                <h3 class="text-xl font-bold mb-4">Paramètre WhatsApp</h3>
+                <form id="settings-form" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end" onsubmit="event.preventDefault();">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs text-gray-400 uppercase mb-1">Numéro WhatsApp des commandes :</label>
+                        <input type="text" id="admin-whatsapp-input" placeholder="Ex: 21650000000" class="w-full bg-black border border-gray-700 p-3 text-white">
+                    </div>
+                    <button type="button" onclick="saveWhatsAppNumber()" class="bg-red-600 text-white font-bold py-3 uppercase">Enregistrer Numéro</button>
+                </form>
+            </div>
+
             <!-- Add Product -->
             <div class="bg-gray-900 p-6 rounded-lg mb-10 border border-gray-800">
                 <h3 class="text-xl font-bold mb-4">Ajouter un Produit</h3>
@@ -160,25 +172,60 @@
         const SUPABASE_ANON_KEY = 'sb_publishable_MCAyTpne5HEVyLMMyYpMfA_-uZwM0qp';
         
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const WHATSAPP_NUMBER = "21650000000"; // Hot num mta3ek houni
         
         let productsList = [];
         let promoCodesList = [];
         let activeDiscount = 0;
+        let currentWhatsAppNumber = "21650000000"; // Numéro par défaut
 
         async function loadData() {
             try {
+                // Charger les produits
                 const { data: prodData, error: prodErr } = await _supabase.from('products').select('*');
                 if (prodErr) throw prodErr;
                 productsList = prodData || [];
 
+                // Charger les codes promo
                 const { data: promoData, error: promoErr } = await _supabase.from('promos').select('*');
                 if (promoErr) throw promoErr;
                 promoCodesList = promoData || [];
 
+                // Charger le numéro WhatsApp depuis la table 'settings' (si elle existe)
+                const { data: settingsData, error: setErr } = await _supabase.from('settings').select('*').eq('key', 'whatsapp_number').single();
+                if (settingsData && settingsData.value) {
+                    currentWhatsAppNumber = settingsData.value;
+                    const inputEl = document.getElementById('admin-whatsapp-input');
+                    if(inputEl) inputEl.value = currentWhatsAppNumber;
+                }
+
                 renderUI();
             } catch (err) {
                 console.error("Erreur chargement:", err);
+            }
+        }
+
+        async function saveWhatsAppNumber() {
+            const newNum = document.getElementById('admin-whatsapp-input').value.trim();
+            if(!newNum) {
+                alert("Veuillez entrer un numéro valide.");
+                return;
+            }
+
+            try {
+                // Upsert dans la table settings
+                const { error } = await _supabase.from('settings').upsert([
+                    { key: 'whatsapp_number', value: newNum }
+                ], { onConflict: 'key' });
+
+                if(!error) {
+                    currentWhatsAppNumber = newNum;
+                    alert("Numéro WhatsApp mis à jour avec succès !");
+                } else {
+                    alert("Erreur: " + error.message);
+                }
+            } catch(err) {
+                console.error(err);
+                alert("Erreur lors de l'enregistrement.");
             }
         }
 
@@ -371,15 +418,21 @@
             }
 
             const btn = document.getElementById('confirm-order-btn');
-            btn.innerText = "Enregistrement...";
+            btn.innerText = "Ouverture WhatsApp...";
             btn.disabled = true;
 
-            // 1. Preparation ta3 message WhatsApp b l'infos l koll
+            // 1. Message WhatsApp avec le numéro dynamique chargé depuis le panel admin
             const text = `🛒 *Commande Fasrord*\n👤 Nom: ${nom}\n📞 Tel: ${tel}\n📍 Wilaya: ${wilaya}\n🏠 Adresse: ${adresse}\n👕 Produit: ${prod}\n🎨 Couleur: ${color}\n💰 Total: ${finalPrice} TND`;
-            const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+            const whatsappUrl = `https://wa.me/${currentWhatsAppNumber}?text=${encodeURIComponent(text)}`;
+
+            // Ouverture instantanée pour éviter le blocage sur mobile
+            const opened = window.open(whatsappUrl, '_blank');
+            if (!opened) {
+                window.location.href = whatsappUrl;
+            }
 
             try {
-                // 2. Save order to Supabase table 'orders'
+                // Enregistrement dans Supabase
                 await _supabase.from('orders').insert([{
                     product_name: prod,
                     product_price: parseFloat(finalPrice),
@@ -393,9 +446,11 @@
                 console.error("Error inserting order:", err);
             }
 
-            // 3. Tsakkar el modal w tdirik direct lel WhatsApp (w ba3d kif yarja3 el client ylqa rouho fel Home)
             closeModal();
-            window.location.href = whatsappUrl;
+            goHome();
+
+            btn.innerText = "Commander sur WhatsApp";
+            btn.disabled = false;
         }
 
         function toggleAdmin() {
