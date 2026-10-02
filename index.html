@@ -365,13 +365,22 @@
             const color = document.getElementById('f-color').value;
             const finalPrice = document.getElementById('final-price').value;
 
+            if(!nom || !tel || !wilaya || !adresse) {
+                alert("Remplis tous les champs s'il vous plaît !");
+                return;
+            }
+
             const btn = document.getElementById('confirm-order-btn');
             btn.innerText = "Enregistrement...";
             btn.disabled = true;
 
+            // 1. Preparation ta3 message WhatsApp b l'infos l koll
+            const text = `🛒 *Commande Fasrord*\n👤 Nom: ${nom}\n📞 Tel: ${tel}\n📍 Wilaya: ${wilaya}\n🏠 Adresse: ${adresse}\n👕 Produit: ${prod}\n🎨 Couleur: ${color}\n💰 Total: ${finalPrice} TND`;
+            const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+
             try {
-                // Save order to Supabase table 'orders'
-                const { error } = await _supabase.from('orders').insert([{
+                // 2. Save order to Supabase table 'orders'
+                await _supabase.from('orders').insert([{
                     product_name: prod,
                     product_price: parseFloat(finalPrice),
                     selected_color: color,
@@ -380,20 +389,13 @@
                     client_phone: tel,
                     client_address: adresse
                 }]);
-
-                if(error) {
-                    console.error("Supabase order error:", error);
-                }
             } catch (err) {
                 console.error("Error inserting order:", err);
             }
 
-            btn.innerText = "Commander sur WhatsApp";
-            btn.disabled = false;
-
-            const text = `🛒 *Commande Fasrord*\n👤 Nom: ${nom}\n📞 Tel: ${tel}\n📍 Wilaya: ${wilaya}\n🏠 Adresse: ${adresse}\n👕 Produit: ${prod}\n🎨 Couleur: ${color}\n💰 Total: ${finalPrice} TND`;
-            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank');
+            // 3. Tsakkar el modal w tdirik direct lel WhatsApp (w ba3d kif yarja3 el client ylqa rouho fel Home)
             closeModal();
+            window.location.href = whatsappUrl;
         }
 
         function toggleAdmin() {
