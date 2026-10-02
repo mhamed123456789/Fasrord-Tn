@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fasrord | Embrace The Dark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: { colors: { black: '#050505', white: '#fafafa' }, fontFamily: { sans: ['Inter', 'sans-serif'] } }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { background-color: #050505; color: #fafafa; }
+        .fade-in { animation: fadeIn 0.8s ease-in-out forwards; opacity: 0; transform: translateY(20px); }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black">
+
+    <!-- Navbar -->
+    <header class="fixed w-full top-0 bg-black/90 backdrop-blur-md z-40 border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="goHome()">
+                <img src="image.png" alt="Logo" class="w-12 h-12 rounded-full object-cover border border-gray-700">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-extrabold tracking-[0.15em] uppercase">Fasrord</h1>
+                    <p class="text-[10px] text-gray-400 tracking-wider">Not just a brand 🇹🇳</p>
+                </div>
+            </div>
+            <button onclick="toggleAdmin()" class="text-xs text-gray-500 hover:text-white uppercase tracking-widest border border-gray-800 px-3 py-1.5">Admin</button>
+        </div>
+    </header>
+
+    <main class="pt-24 pb-12 min-h-screen">
+        <!-- Store View -->
+        <div id="store-view">
+            <section class="text-center py-20 px-4">
+                <h2 class="text-4xl md:text-6xl font-extrabold mb-4">EMBRACE THE DARK</h2>
+                <p class="text-red-500 font-bold uppercase text-xs">Celebrity manufacturing unit 🇹🇳</p>
+            </section>
+
+            <section class="px-6 py-10 max-w-7xl mx-auto">
+                <h2 class="text-3xl font-bold uppercase tracking-widest mb-10 border-b border-gray-800 pb-4">Collection</h2>
+                <div id="loading" class="text-center text-gray-500 py-10">Chargement...</div>
+                <div id="product-grid" class="grid grid-cols-1 md:grid-cols-3 gap-10"></div>
+            </section>
+        </div>
+
+        <!-- Admin View -->
+        <div id="admin-view" class="hidden px-6 py-10 max-w-5xl mx-auto">
+            <div class="flex justify-between items-center mb-10 border-b border-gray-800 pb-4">
+                <h2 class="text-3xl font-bold text-red-500 uppercase">Admin Panel</h2>
+                <button onclick="goHome()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+
+            <!-- Add Product -->
+            <div class="bg-gray-900 p-6 rounded-lg mb-10 border border-gray-800">
+                <h3 class="text-xl font-bold mb-4">Ajouter un Produit</h3>
+                <form id="add-product-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end" onsubmit="event.preventDefault();">
+                    <input type="text" id="admin-name" placeholder="Nom du produit" required class="bg-black border border-gray-700 p-3 text-white">
+                    <input type="number" id="admin-price" placeholder="Prix (TND)" required class="bg-black border border-gray-700 p-3 text-white">
+                    <input type="text" id="admin-colors" placeholder="Couleurs (ex: Noir, Blanc, Rouge)" required class="bg-black border border-gray-700 p-3 text-white">
+                    <input type="file" id="admin-img-file" accept="image/*" required class="bg-black border border-gray-700 p-2 text-white">
+                    <button type="button" onclick="handleAddProduct()" class="md:col-span-2 bg-white text-black font-bold py-3 uppercase">Ajouter le Produit</button>
+                </form>
+            </div>
+
+            <!-- Manage Products -->
+            <div class="bg-gray-900 p-6 rounded-lg mb-10 border border-gray-800">
+                <h3 class="text-xl font-bold mb-4">Gérer les Produits</h3>
+                <table class="w-full text-left"><tbody id="admin-product-list"></tbody></table>
+            </div>
+
+            <!-- Promo Codes -->
+            <div class="bg-gray-900 p-6 rounded-lg mb-10 border border-gray-800">
+                <h3 class="text-xl font-bold mb-4">Gérer les Codes Promo</h3>
+                <form id="add-promo-form" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mb-6" onsubmit="event.preventDefault();">
+                    <input type="text" id="promo-code-input" placeholder="Code (Ex: VIP20)" required class="bg-black border border-gray-700 p-3 text-white uppercase">
+                    <input type="number" id="promo-discount-input" placeholder="Réduction (%)" required class="bg-black border border-gray-700 p-3 text-white">
+                    <button type="button" onclick="handleAddPromo()" class="bg-red-600 text-white font-bold py-3 uppercase">Ajouter Code</button>
+                </form>
+                <table class="w-full text-left"><tbody id="admin-promo-list"></tbody></table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-50 hidden opacity-0 transition-opacity p-4">
+        <div class="bg-[#0a0a0a] border border-gray-800 w-full max-w-lg p-6 relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+            <h3 id="modal-title" class="text-2xl font-bold uppercase mb-2"></h3>
+            <p id="modal-price" class="text-xl text-gray-400 mb-4"></p>
+            
+            <form id="checkout-form" onsubmit="event.preventDefault(); handleCheckout(event);" class="space-y-4">
+                <input type="hidden" id="prod-name">
+                <input type="hidden" id="prod-price">
+                <input type="hidden" id="final-price">
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase mb-1">Choisir la couleur :</label>
+                    <select id="f-color" required class="w-full bg-black border border-gray-700 p-3 text-white"></select>
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="f-promo-code" placeholder="Code Promo" class="flex-1 bg-black border border-gray-700 p-2 text-white uppercase text-sm">
+                    <button type="button" onclick="applyPromoCode()" class="bg-white text-black text-xs font-bold px-4 uppercase">Appliquer</button>
+                </div>
+                <p id="promo-msg" class="text-xs text-gray-400"></p>
+                
+                <input type="text" id="f-nom" placeholder="Nom & Prénom" required class="w-full bg-black border border-gray-700 p-3 text-white">
+                <input type="tel" id="f-tel" placeholder="Numéro Tel" required class="w-full bg-black border border-gray-700 p-3 text-white">
+                
+                <div>
+                    <label class="block text-xs text-gray-400 uppercase mb-1">Wilaya :</label>
+                    <select id="f-wilaya" required class="w-full bg-black border border-gray-700 p-3 text-white">
+                        <option value="">Sélectionner votre wilaya</option>
+                        <option value="Tunis">Tunis</option>
+                        <option value="Ariana">Ariana</option>
+                        <option value="Ben Arous">Ben Arous</option>
+                        <option value="Manouba">Manouba</option>
+                        <option value="Nabeul">Nabeul</option>
+                        <option value="Zaghouan">Zaghouan</option>
+                        <option value="Bizerte">Bizerte</option>
+                        <option value="Béja">Béja</option>
+                        <option value="Jendouba">Jendouba</option>
+                        <option value="Le Kef">Le Kef</option>
+                        <option value="Siliana">Siliana</option>
+                        <option value="Sousse">Sousse</option>
+                        <option value="Monastir">Monastir</option>
+                        <option value="Mahdia">Mahdia</option>
+                        <option value="Sfax">Sfax</option>
+                        <option value="Kairouan">Kairouan</option>
+                        <option value="Kasserine">Kasserine</option>
+                        <option value="Sidi Bouzid">Sidi Bouzid</option>
+                        <option value="Gabès">Gabès</option>
+                        <option value="Medenine">Medenine</option>
+                        <option value="Tataouine">Tataouine</option>
+                        <option value="Gafsa">Gafsa</option>
+                        <option value="Tozeur">Tozeur</option>
+                        <option value="Kébili">Kébili</option>
+                    </select>
+                </div>
+
+                <input type="text" id="f-adresse" placeholder="Adresse exacte / Rue" required class="w-full bg-black border border-gray-700 p-3 text-white">
+                
+                <button type="submit" id="confirm-order-btn" class="w-full bg-white text-black font-bold py-3 uppercase">Commander sur WhatsApp</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bwwjtbdqupguqdljowei.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_MCAyTpne5HEVyLMMyYpMfA_-uZwM0qp';
+        
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const WHATSAPP_NUMBER = "21650000000"; // Hot num mta3ek houni
+        
+        let productsList = [];
+        let promoCodesList = [];
+        let activeDiscount = 0;
+
+        async function loadData() {
+            try {
+                const { data: prodData, error: prodErr } = await _supabase.from('products').select('*');
+                if (prodErr) throw prodErr;
+                productsList = prodData || [];
+
+                const { data: promoData, error: promoErr } = await _supabase.from('promos').select('*');
+                if (promoErr) throw promoErr;
+                promoCodesList = promoData || [];
+
+                renderUI();
+            } catch (err) {
+                console.error("Erreur chargement:", err);
+            }
+        }
+
+        function renderUI() {
+            const loadingEl = document.getElementById('loading');
+            if(loadingEl) loadingEl.classList.add('hidden');
+            
+            const grid = document.getElementById('product-grid');
+            const adminList = document.getElementById('admin-product-list');
+            const adminPromoList = document.getElementById('admin-promo-list');
+
+            if(!grid) return;
+
+            grid.innerHTML = '';
+            adminList.innerHTML = '';
+            adminPromoList.innerHTML = '';
+
+            productsList.forEach(p => {
+                grid.innerHTML += `
+                    <div class="group cursor-pointer fade-in" onclick="openModal('${p.id}')">
+                        <div class="bg-[#111] aspect-[4/5] mb-4 overflow-hidden relative border border-gray-900">
+                            <img src="${p.img}" class="object-cover w-full h-full opacity-70 group-hover:opacity-100 transition">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-sm font-semibold uppercase text-gray-300">${p.name}</h3>
+                                <p class="text-[11px] text-gray-500">Couleurs: ${p.colors || 'Standard'}</p>
+                            </div>
+                            <p class="text-sm font-bold">${p.price} TND</p>
+                        </div>
+                    </div>
+                `;
+
+                adminList.innerHTML += `
+                    <tr class="border-b border-gray-800">
+                        <td class="p-3"><img src="${p.img}" class="w-10 h-14 object-cover"></td>
+                        <td class="p-3">${p.name}</td>
+                        <td class="p-3 text-xs text-gray-400">${p.colors || '-'}</td>
+                        <td class="p-3">${p.price} TND</td>
+                        <td class="p-3"><button onclick="deleteProduct('${p.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                `;
+            });
+
+            promoCodesList.forEach(promo => {
+                adminPromoList.innerHTML += `
+                    <tr class="border-b border-gray-800">
+                        <td class="p-3 font-bold text-red-400 uppercase">${promo.code}</td>
+                        <td class="p-3">${promo.discount}%</td>
+                        <td class="p-3"><button onclick="deletePromo('${promo.id}')" class="text-red-500"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function handleAddProduct() {
+            const fileInput = document.getElementById('admin-img-file');
+            const name = document.getElementById('admin-name').value;
+            const price = document.getElementById('admin-price').value;
+            const colors = document.getElementById('admin-colors').value;
+
+            if(!name || !price || !fileInput.files[0]) {
+                alert("Veuillez remplir tous les champs du produit.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const newProd = {
+                    name: name,
+                    price: parseFloat(price),
+                    colors: colors || 'Standard',
+                    img: event.target.result
+                };
+                const { error } = await _supabase.from('products').insert([newProd]);
+                if (!error) {
+                    document.getElementById('add-product-form').reset();
+                    loadData();
+                    alert("Produit Ajouté avec succès !");
+                } else {
+                    alert("Erreur: " + error.message);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function handleAddPromo() {
+            const codeInput = document.getElementById('promo-code-input').value.trim().toUpperCase();
+            const discountInput = document.getElementById('promo-discount-input').value;
+
+            if(!codeInput || !discountInput) {
+                alert("Remplissez les champs du code promo.");
+                return;
+            }
+
+            const newPromo = {
+                code: codeInput,
+                discount: parseFloat(discountInput)
+            };
+            const { error } = await _supabase.from('promos').insert([newPromo]);
+            if (!error) {
+                document.getElementById('add-promo-form').reset();
+                loadData();
+                alert("Code Promo Ajouté !");
+            } else {
+                alert("Erreur: " + error.message);
+            }
+        }
+
+        async function deleteProduct(id) {
+            if(confirm('Supprimer ce produit ?')) {
+                await _supabase.from('products').delete().eq('id', id);
+                loadData();
+            }
+        }
+
+        async function deletePromo(id) {
+            if(confirm('Supprimer ce code promo ?')) {
+                await _supabase.from('promos').delete().eq('id', id);
+                loadData();
+            }
+        }
+
+        function openModal(id) {
+            const prod = productsList.find(p => p.id == id);
+            if(!prod) return;
+            activeDiscount = 0;
+            document.getElementById('f-promo-code').value = '';
+            document.getElementById('promo-msg').innerText = '';
+            document.getElementById('modal-title').innerText = prod.name;
+            document.getElementById('prod-name').value = prod.name;
+            document.getElementById('prod-price').value = prod.price;
+            document.getElementById('final-price').value = prod.price;
+            document.getElementById('modal-price').innerText = prod.price + " TND";
+            
+            const colorSelect = document.getElementById('f-color');
+            colorSelect.innerHTML = '';
+            const colors = prod.colors ? prod.colors.split(',') : ['Standard'];
+            colors.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.trim();
+                opt.innerText = c.trim();
+                colorSelect.appendChild(opt);
+            });
+
+            const modal = document.getElementById('checkout-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function applyPromoCode() {
+            const inputCode = document.getElementById('f-promo-code').value.trim().toUpperCase();
+            const basePrice = parseFloat(document.getElementById('prod-price').value);
+            const found = promoCodesList.find(p => p.code === inputCode);
+            const msgEl = document.getElementById('promo-msg');
+
+            if(found) {
+                activeDiscount = found.discount;
+                const discounted = basePrice - (basePrice * activeDiscount / 100);
+                document.getElementById('final-price').value = discounted.toFixed(2);
+                document.getElementById('modal-price').innerHTML = `<span class="line-through text-gray-500">${basePrice} TND</span> <span class="text-green-400">${discounted.toFixed(2)} TND (-${activeDiscount}%)</span>`;
+                msgEl.innerText = `✔ Code appliqué !`;
+            } else {
+                activeDiscount = 0;
+                document.getElementById('final-price').value = basePrice;
+                document.getElementById('modal-price').innerText = basePrice + " TND";
+                msgEl.innerText = `✖ Code invalide !`;
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('checkout-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        async function handleCheckout(e) {
+            const nom = document.getElementById('f-nom').value;
+            const tel = document.getElementById('f-tel').value;
+            const wilaya = document.getElementById('f-wilaya').value;
+            const adresse = document.getElementById('f-adresse').value;
+            const prod = document.getElementById('prod-name').value;
+            const color = document.getElementById('f-color').value;
+            const finalPrice = document.getElementById('final-price').value;
+
+            const btn = document.getElementById('confirm-order-btn');
+            btn.innerText = "Enregistrement...";
+            btn.disabled = true;
+
+            try {
+                // Save order to Supabase table 'orders'
+                const { error } = await _supabase.from('orders').insert([{
+                    product_name: prod,
+                    product_price: parseFloat(finalPrice),
+                    selected_color: color,
+                    wilaya: wilaya,
+                    client_name: nom,
+                    client_phone: tel,
+                    client_address: adresse
+                }]);
+
+                if(error) {
+                    console.error("Supabase order error:", error);
+                }
+            } catch (err) {
+                console.error("Error inserting order:", err);
+            }
+
+            btn.innerText = "Commander sur WhatsApp";
+            btn.disabled = false;
+
+            const text = `🛒 *Commande Fasrord*\n👤 Nom: ${nom}\n📞 Tel: ${tel}\n📍 Wilaya: ${wilaya}\n🏠 Adresse: ${adresse}\n👕 Produit: ${prod}\n🎨 Couleur: ${color}\n💰 Total: ${finalPrice} TND`;
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`, '_blank');
+            closeModal();
+        }
+
+        function toggleAdmin() {
+            if(prompt("Mot de passe Admin :") === "fasrord2026") {
+                document.getElementById('store-view').classList.add('hidden');
+                document.getElementById('admin-view').classList.remove('hidden');
+            }
+        }
+        function goHome() {
+            document.getElementById('admin-view').classList.add('hidden');
+            document.getElementById('store-view').classList.remove('hidden');
+            loadData();
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
